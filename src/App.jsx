@@ -325,7 +325,7 @@ function IntroScreen({ onStart }) {
       </div>
 
       <h1
-        className="text-[5.2rem] leading-[1.0] font-medium text-neutral-900 tracking-tight mb-5"
+        className="text-[3.5rem] leading-[1.0] font-medium text-neutral-900 tracking-tight mb-5"
         style={{ fontFamily: "'Fraunces', Georgia, serif" }}
       >
         What makes the school year <em className="italic">hard?</em>
