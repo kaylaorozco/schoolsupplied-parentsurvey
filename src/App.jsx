@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./lib/supabase";
 
+const SURVEY_CLOSED = true;
+
 const QUESTIONS = [
   {
     id: "kids",
@@ -141,7 +143,7 @@ export default function App() {
           setPhase("admin");
         }
       } else {
-        if (!cancelled) setPhase("intro");
+        if (!cancelled) setPhase(SURVEY_CLOSED ? "closed" : "intro");
       }
     })();
 
@@ -269,6 +271,8 @@ export default function App() {
             </div>
           )}
 
+          {phase === "closed" && <ClosedScreen />}
+
           {phase === "intro" && <IntroScreen onStart={() => setPhase("survey")} />}
 
           {phase === "survey" && (
@@ -311,6 +315,118 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ClosedScreen() {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle"); // idle | submitting | done | error | duplicate
+  const [focused, setFocused] = useState(false);
+
+  function validateEmail(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  }
+
+  async function handleSignup() {
+    const trimmed = email.trim().toLowerCase();
+    if (!validateEmail(trimmed)) {
+      setStatus("error");
+      return;
+    }
+    setStatus("submitting");
+
+    const { data: existing } = await supabase
+      .from("waitlist")
+      .select("email")
+      .eq("email", trimmed)
+      .maybeSingle();
+
+    if (existing) { setStatus("duplicate"); return; }
+
+    const { error } = await supabase.from("waitlist").insert({ email: trimmed });
+    setStatus(error ? "error" : "done");
+  }
+
+  return (
+    <>
+      <div className="inline-flex items-center gap-2 bg-neutral-100 border border-neutral-200 rounded-full px-3 py-1.5 mb-6">
+        <span className="text-base">📋</span>
+        <span className="text-[11px] font-medium tracking-wide text-neutral-600 font-sans">
+          Survey closed
+        </span>
+      </div>
+
+      <h1
+        className="text-[3.5rem] leading-[1.05] font-medium text-neutral-900 tracking-tight mb-5"
+        style={{ fontFamily: "'Fraunces', Georgia, serif" }}
+      >
+        I've got what I<br />
+        <em className="italic">needed — thank you.</em>
+      </h1>
+
+      <p className="text-[15px] text-neutral-600 leading-relaxed mb-4 font-sans">
+        The survey is now closed. I got a ton of amazing responses and I'm
+        heads-down turning them into something useful.
+      </p>
+
+      <p className="text-[15px] text-neutral-600 leading-relaxed mb-7 font-sans">
+        If you'd like to hear when the app is ready, drop your email below —
+        I'll send one short update when it launches.{" "}
+        <span className="text-neutral-500">No spam, unsubscribe any time.</span>
+      </p>
+
+      {status === "done" ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-5 text-center">
+          <div className="text-2xl mb-2">✨</div>
+          <p className="text-[14px] font-medium text-amber-900 font-sans">You're on the list!</p>
+          <p className="text-[12px] text-amber-800 font-sans mt-1 leading-relaxed">
+            I'll reach out when something is ready to share. Talk soon.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setStatus("idle"); }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="your@email.com"
+              className={`flex-1 px-4 py-3 rounded-full text-[14px] outline-none transition-all font-sans ${
+                focused
+                  ? "border-neutral-900 bg-white ring-4 ring-neutral-900/5"
+                  : "border-neutral-200 bg-neutral-50 hover:border-neutral-300"
+              }`}
+              style={{ borderWidth: 1, borderStyle: "solid" }}
+              onKeyDown={(e) => e.key === "Enter" && handleSignup()}
+            />
+            <button
+              onClick={handleSignup}
+              disabled={status === "submitting"}
+              className="bg-neutral-900 text-white rounded-full px-6 py-3 text-[14px] font-medium font-sans tracking-wide hover:bg-neutral-800 active:scale-[0.99] transition-all disabled:opacity-50"
+            >
+              {status === "submitting" ? "Saving…" : "Stay updated →"}
+            </button>
+          </div>
+
+          {status === "error" && (
+            <p className="text-[12px] text-rose-700 font-sans mt-2">
+              That email doesn't look quite right — give it another try.
+            </p>
+          )}
+          {status === "duplicate" && (
+            <p className="text-[12px] text-neutral-500 font-sans mt-2">
+              You're already on the list — I've got you. ✓
+            </p>
+          )}
+
+          <p className="text-[11px] text-neutral-400 font-sans mt-3 leading-relaxed">
+            One email when it's ready. Unsubscribe any time — just reply and I'll remove you.
+          </p>
+        </>
+      )}
+    </>
   );
 }
 
